@@ -24,9 +24,6 @@ def init_db():
 @app.route('/')
 def hello():
 	return u'Hello world!'
-@app.route('/carolineisbomb')
-def caroline():
-	return u'Yeah dats fo sho'
 	
 
 DB_SCHEMA = """
