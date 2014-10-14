@@ -6,12 +6,28 @@ import psycopg2
 from contextlib import closing
 from flask import g
 from flask import render_template
+from flask import abort
+from flask import request
+from flask import url_for
+from flask import redirect
+from flask import session
+from passlib.hash import pbkdf2_sha256
+
 
 app = Flask(__name__)
 
 app.config['DATABASE'] = os.environ.get(
 	'DATABASE_URL', 'dbname=learning_journal user =postgres password = becreative'
 	)
+app.config['ADMIN_USERNAME'] = os.environ.get(
+	'ADMIN_USERNAME', 'admin'
+	)
+app.config['ADMIN_PASSWORD'] = os.environ.get(
+	'ADMIN_PASSWORD', pbkdf2_sha256.encrypt('admin')
+	)
+app.config['SECRET_KEY'] = os.environ.get(
+    'FLASK_SECRET_KEY', '300000'
+)
 
 def connect_db():
 	#return a connection to the db
@@ -29,6 +45,13 @@ def get_database_connection():
 	if db is None:
 		g.db = db = connect_db()
 	return db
+
+def do_login(username='', passwd=''):
+    if username != app.config['ADMIN_USERNAME']:
+        raise ValueError
+    if not pbkdf2_sha256.verify(passwd, app.config['ADMIN_PASSWORD']):
+        raise ValueError
+    session['logged_in'] = True
 
 @app.teardown_request
 def teardown_request(exception):
@@ -62,7 +85,32 @@ def get_all_entries():
 def show_entries():
 	entries = get_all_entries()
 	return render_template('list_entries.html', entries=entries)
-	
+
+@app.route('/add', methods=['POST'])
+def add_entry():
+	try:
+		write_entry(request.form['title'], request.form['text'])
+	except psycopg2.Error:
+		abort(500)
+	return redirect(url_for('show_entries'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+	error = None
+	if request.method == 'POST':
+		try:
+			do_login(request.form['username'].encode('utf-8'),
+			request.form['password'].encode('utf-8'))
+		except ValueError:
+			error = "Login Failed"
+		else:
+			return redirect(url_for('show_entries'))
+	return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+	session.pop('logged_in', None)
+	return redirect(url_for('show_entries'))
 
 DB_SCHEMA = """
 DROP TABLE IF EXISTS entries;
