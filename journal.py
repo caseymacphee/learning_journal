@@ -94,6 +94,24 @@ def add_entry():
 		abort(500)
 	return redirect(url_for('show_entries'))
 
+@app.route('/edit/<id>', methods=['POST', 'GET'])
+def edit_entry(id):
+	if request.method == 'POST':
+		try:
+			write_entry(request.form['title'], request.form['text'])
+	## fill content here???
+		except psycopg2.Error:
+			abort(500)
+		return redirect(url_for('show_entries'))
+	else:
+		entries = get_all_entries
+		oneentry = None
+		for entry in entries:
+			if entry == id:
+				oneentry = entry
+		return render_template('list_entries', entries=entries, editeentry = oneentry)
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
 	error = None
