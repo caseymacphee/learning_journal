@@ -3,10 +3,10 @@
 {% if session.logged_in %}
     <aside>
   {% if edit %}
-    <form action="{{url_for('submit_edit', id = edit_id)}}" method="POST" class="edit_entry">
+    <form action="{{url_for('submit_edit', id = edit_id)}}" method="POST">
     <div class="field">
       <label for="title">Edit Title</label>
-      <input type="text" size="30" name="text" id="title" value="{{edit_title}}"/>
+      <input type="text" size="30" name="title" id="title" value="{{edit_title}}"/>
     </div>
     <div class="field">
       <label for="text">Edit Text</label>
@@ -51,7 +51,7 @@
       <h3>{{ entry.title }}</h3>
       <p class="dateline">{{ entry.created.strftime('%b. %d, %Y') }}</p>
       <div class="entry_body">
-        {{ entry.text|safe }}
+        {{ entry.text|markdown }}
       </div>
       {% if session.logged_in %}
         {% if edit %}

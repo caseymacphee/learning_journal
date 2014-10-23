@@ -12,10 +12,11 @@ from flask import url_for
 from flask import redirect
 from flask import session
 from passlib.hash import pbkdf2_sha256
+from flaskext.markdown import Markdown 
 
 
 app = Flask(__name__)
-
+Markdown(app, extensions= ['codehilite', 'fenced_code'])
 edit = False
 
 DB_SCHEMA = """
@@ -148,8 +149,7 @@ def login():
 	error = None
 	if request.method == 'POST':
 		try:
-			do_login(request.form['username'].encode('utf-8'),
-			request.form['password'].encode('utf-8'))
+			do_login(request.form['username'].encode('utf-8'), request.form['password'].encode('utf-8'))
 		except ValueError:
 			error = "Login Failed"
 		else:
