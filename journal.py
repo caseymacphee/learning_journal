@@ -16,6 +16,30 @@ from passlib.hash import pbkdf2_sha256
 
 app = Flask(__name__)
 
+edit = False
+
+DB_SCHEMA = """
+DROP TABLE IF EXISTS entries;
+CREATE TABLE entries (
+	id serial PRIMARY KEY,
+	title VARCHAR (127) NOT NULL,
+	text TEXT NOT NULL,
+	created TIMESTAMP NOT NULL
+)
+"""
+DB_ENTRY_INSERT = """
+INSERT INTO entries (title, text, created) VALUES(%s, %s, %s)
+"""
+DB_ENTRIES_LIST = """
+SELECT id, title, text, created FROM entries ORDER BY created DESC
+"""
+DB_ENTRY_OVERWRITE = """
+UPDATE ENTRIES
+SET title = %s,
+    text = %s
+WHERE id = %s
+"""
+
 app.config['DATABASE'] = os.environ.get(
 	'DATABASE_URL', 'dbname=learning_journal user =postgres password = becreative'
 	)
@@ -28,6 +52,7 @@ app.config['ADMIN_PASSWORD'] = os.environ.get(
 app.config['SECRET_KEY'] = os.environ.get(
     'FLASK_SECRET_KEY', '300000'
 )
+
 
 def connect_db():
 	#return a connection to the db
@@ -80,6 +105,10 @@ def get_all_entries():
 	keys = ('id', 'title', 'text', 'created')
 	return [dict(zip(keys, row)) for row in cur.fetchall()]
 
+def rewrite_entry(title, text, id):
+    conn = get_database_connection()
+    curs = conn.cursor()
+    curs.execute(DB_ENTRY_OVERWRITE, [title, text, id])
 
 @app.route('/')
 def show_entries():
@@ -94,22 +123,24 @@ def add_entry():
 		abort(500)
 	return redirect(url_for('show_entries'))
 
-@app.route('/edit/<id>', methods=['POST', 'GET'])
+@app.route('/edit/<id>', methods=['GET', 'POST'])
 def edit_entry(id):
-	if request.method == 'POST':
-		try:
-			write_entry(request.form['title'], request.form['text'])
-	## fill content here???
-		except psycopg2.Error:
-			abort(500)
-		return redirect(url_for('show_entries'))
-	else:
-		entries = get_all_entries
-		oneentry = None
-		for entry in entries:
-			if entry == id:
-				oneentry = entry
-		return render_template('list_entries', entries=entries, editeentry = oneentry)
+	entries = get_all_entries()
+	edit_text = 'No title'
+	edit_title = 'No text'
+	for entry in entries:
+		if entry['id'] == int(id):
+			edit_title = entry['title']
+			edit_text = entry['text']
+	return render_template('list_entries.html', entries=entries, edit = True, edit_title = edit_title, edit_text = edit_text, edit_id = id)
+
+@app.route('/edit/<id>/submit', methods=['GET', 'POST'])
+def submit_edit(id):
+    try:
+        rewrite_entry(request.form['title'], request.form['text'], id)
+    except psycopg2.Error:
+        abort(500)
+    return redirect(url_for('show_entries'))
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -129,22 +160,6 @@ def login():
 def logout():
 	session.pop('logged_in', None)
 	return redirect(url_for('show_entries'))
-
-DB_SCHEMA = """
-DROP TABLE IF EXISTS entries;
-CREATE TABLE entries (
-	id serial PRIMARY KEY,
-	title VARCHAR (127) NOT NULL,
-	text TEXT NOT NULL,
-	created TIMESTAMP NOT NULL
-)
-"""
-DB_ENTRY_INSERT = """
-INSERT INTO entries (title, text, created) VALUES(%s, %s, %s)
-"""
-DB_ENTRIES_LIST = """
-SELECT id, title, text, created FROM entries ORDER BY created DESC
-"""
 
 if __name__ == '__main__':
 	app.run(debug=True)
